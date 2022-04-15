@@ -1,0 +1,149 @@
+import logging
+
+import azure.functions as func
+import speech_recognition as sr
+from tkinter import *
+from random import random
+from kivy.app import App
+from kivy.uix.widget import Widget
+from kivy.uix.button import Button
+from kivy.graphics import Color, Line, Rectangle
+from kivy.core.window import Window
+import pyscreenshot as ImageGrab
+from kivy.config import Config
+from PIL import Image
+
+from gtts import gTTS
+import os
+
+from google_images_download import google_images_download
+
+mytext = 'Hey welcome what do you want to color'
+myaudiotext = 'Speak correctly please !!!'
+language = 'en'
+
+myobj = gTTS(text=mytext, lang=language, slow=False)
+myobj2 = gTTS(text=myaudiotext, lang=language, slow=False)
+
+audio = 'fish'
+r = sr.Recognizer()
+
+myobj.save("welcome.mp3")
+myobj2.save("error.mp3")
+
+ListOfObjects = {'apple':'red','fish':'blue','leaf':'green'}
+
+class MyBackground(Widget):
+    def __init__(self, **kwargs):
+        super(MyBackground, self).__init__(**kwargs)
+        with self.canvas:
+            Window.clearcolor = (0, 0, 0, 0)
+            object = r.recognize_google(audio);
+
+            if object.lower() in ListOfObjects :
+
+                self.bg = Rectangle(source=object+'e'+'.gif', size=(300, 300), pos=(100, 100))
+                self.bg = Rectangle(source=object+'Sample'+'.gif', size=(300, 300), pos=(1000, 100))
+                self.bg = Rectangle(source=object+'.gif', size=(300, 300), pos=(550, 100))
+
+            else:
+                self.bg = Rectangle(source='photo.gif', size=(500, 300), pos=(490, 100))
+
+            path = './downloads/'+object
+            if not os.path.exists(path + '/' + 'converted'):
+                os.mkdir(path + '/' + 'converted')
+            skip = ["converted"]
+            for filename in os.listdir(path):
+                if(filename in skip):
+                    continue;
+                img = Image.open(path+'/'+filename)
+                filename = filename.rsplit('.', 1)
+                img.save(path+'/' + 'converted/' + filename[0] + '.gif')
+
+            newpath = path + '/' + 'converted'
+            dpos = 100;
+            for filename in os.listdir(newpath):
+                self.bg = Rectangle(source= newpath+ '/' + filename, size=(300, 300), pos=(dpos, 500))
+                dpos= dpos+400;
+
+class MyPaintWidget(Widget):
+
+    def on_touch_down(self, touch):
+        color = (random(), 1, 1)
+        with self.canvas:
+
+            Color(*color, mode='hsv')
+            touch.ud['line'] = Line(points=(touch.x, touch.y), width=5)
+
+    def on_touch_move(self, touch):
+        touch.ud['line'].points += [touch.x, touch.y]
+
+
+class MyPaintApp(App):
+
+
+    def build(self):
+        response = google_images_download.googleimagesdownload();
+        arguments = {"keywords": r.recognize_google(audio), "limit": 3, "print_urls": True}
+
+        paths = response.download(arguments)
+
+        parent = MyBackground()
+        self.painter = MyPaintWidget()
+        clearbtn = Button(text='Clear')
+        clearbtn.bind(on_release=self.clear_canvas)
+        parent.add_widget(self.painter)
+        parent.add_widget(clearbtn)
+        savebtn = Button(text='Save',pos=(1000, 0))
+        savebtn.bind(on_release=self.save)
+        parent.add_widget(savebtn)
+        print('paint rendering')
+        return parent
+
+    def clear_canvas(self, obj):
+        self.painter.canvas.clear()
+
+    def save(self, *args):
+        im = ImageGrab.grab()
+        im.save('screenshot.png')
+
+
+def main(req: func.HttpRequest) -> func.HttpResponse:
+    logging.info('Python HTTP trigger function processed a request.')
+
+    name = req.params.get('name')
+    if not name:
+        try:
+            req_body = req.get_json()
+        except ValueError:
+            pass
+        else:
+            name = req_body.get('name')
+
+    if name:
+        os.system("mpg123 welcome.mp3")
+        # Record Audio
+        r = sr.Recognizer()
+        with sr.Microphone() as source:
+            print("Say something!")
+            audio = r.listen(source)
+
+        # Speech recognition using Google Speech Recognition
+        try:
+            print("You said: " + r.recognize_google(audio))
+        except sr.UnknownValueError:
+            print("Google Speech Recognition could not understand audio")
+            os.system("mpg123 error.mp3")
+            exit()
+        except sr.RequestError as e:
+            print("Could not request results from Google Speech Recognition service; {0}".format(e))
+
+        if __name__ == '__main__':
+            MyPaintApp().run()
+        
+        return func.HttpResponse(f"Hello, {name}. This HTTP triggered function executed successfully.")
+    else:
+        return func.HttpResponse(
+             "This HTTP triggered function executed successfully. Pass a name in the query string or in the request body for a personalized response.",
+             status_code=200
+        )
