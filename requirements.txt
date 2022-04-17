@@ -8,4 +8,5 @@ kivy==2.0.0
 pyscreenshot==3.0
 pillow==9.0.1
 gTTS==2.2.3
+PyAudio==0.2.11
 git+https://github.com/Joeclinton1/google-images-download.git

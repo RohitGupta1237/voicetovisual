@@ -18,6 +18,9 @@ I have uploaded a demo video frtProject.mp4 for your kind reference.
 
 To install the requirements of the project
 
+Install brew.
+Run brew install portaudio
+
 pip install -r requirements.txt
 
 To run,
